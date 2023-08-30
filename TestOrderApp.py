@@ -3,7 +3,6 @@ from tkinter import ttk
 import csv
 import atexit
 
-
 machineDrop = [
     "ULB-05",
     "KD-25",
@@ -21,15 +20,8 @@ orderStatusDrop = [
     "Finished"
 ]
 
-orders = []
-
-
 class TestOrderApp:
     def __init__(self, root):
-
-        # Register the save function to be called at exit
-        atexit.register(self.save_to_csv)
-
         self.root = root
         self.root.title("Test Order Tracker")
 
@@ -67,11 +59,12 @@ class TestOrderApp:
 
         # Load orders from CSV on startup
         self.load_from_csv()
+
         # Update the tree with orders
         self.update_tree()
 
-        
-
+         # Register the save function to be called at exit
+        atexit.register(self.save_to_csv)
 
     def save_to_csv(self):
         with open("orders.csv", mode="w", newline="") as file:
@@ -81,7 +74,8 @@ class TestOrderApp:
 
     def load_from_csv(self):
         global orders
-        orders = []  # Clear existing orders
+        # Clear existing orders
+        orders = []
         try:
             with open("orders.csv", mode="r") as file:
                 reader = csv.reader(file)
@@ -96,10 +90,10 @@ class TestOrderApp:
         order = self.order_entry.get()
         status = self.orderStatus.get()
         tuple_item = (machine, order, status)
+
         # Update order status logic here
-       
-        for index, (_, existing_order, _) in enumerate(orders):
-            if existing_order == order:
+        for index, (_, existingOrder, _) in enumerate(orders):
+            if existingOrder == order:
                 if status != orders[index][2]:  # Check if the status has changed
                     print(f"Status of order '{order}' changed. Updating status.")
                     orders[index] = (machine, order, status)
@@ -111,9 +105,10 @@ class TestOrderApp:
             print(f"Order '{order}' not found in the list. Appending.")
             orders.append(tuple_item)
             self.save_to_csv()
+            
         print(orders)
-
         self.update_tree()
+
     def update_tree(self):
          # Clear the existing rows in the Treeview
         self.tree.delete(*self.tree.get_children())
@@ -121,6 +116,7 @@ class TestOrderApp:
         # Insert each order into the Treeview
         for machine, order, status in orders:
             self.tree.insert("", "end", values=(machine, order, status))
+
 root = tk.Tk()
 app = TestOrderApp(root)
 root.mainloop()
