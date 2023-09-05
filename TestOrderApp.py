@@ -1,10 +1,12 @@
-import tkinter as tk
-from tkinter import Frame, ttk
 import csv
-import atexit
+import pathlib
+import tkinter as tk
 from datetime import datetime
+from tkinter import  ttk
+from ttkthemes import ThemedStyle
 
-machineDrop = [
+print("Current working directory:", pathlib.Path().resolve())
+MACHINE_DROP_OPTIONS = [
     "ULB-05",
     "KD-25",
     "LHP-01",
@@ -20,7 +22,7 @@ machineDrop = [
     "W12",
 ]
 
-orderStatusDrop = [
+ORDER_STATUS_OPTIONS = [
     "Assigned",
     "Setting Up",
     "Fixture design",
@@ -33,106 +35,89 @@ orderStatusDrop = [
 class TestOrderApp:
     def __init__(self, root):
         self.root = root
-
         self.root.title("Test Order Tracker App")
-        self.label = tk.Label(root, text="Test Order Tracker")
-        self.label.pack()
-        frame = Frame(root)
-        frame.pack()
-        frame_entries = Frame(root)
-        frame_entries.pack()
+        self.style = ThemedStyle(self.root)
+        self.style.set_theme("arc")  # You can change the theme here
 
-        frame_update = Frame(root)
-        frame_update.pack()
+        self.orders = []
+        self.init_ui()
+        self.load_from_csv()
 
-        self.label = tk.Label(frame, text="Machine")
-        self.label.pack(side="left")
-
-        self.MachineDrop = tk.StringVar()
-        self.MachineDrop.set("ULB-05")
-        self.drop_machine = tk.OptionMenu(frame_entries, self.MachineDrop, *machineDrop)
-        self.drop_machine.pack(side="left")
-
-        self.label = tk.Label(
-            frame,
-            text="Order number",
-        )
-        self.label.pack(side="left")
-        self.order_entry = tk.Entry(frame_entries)
-        self.order_entry.pack(side="left")
-
-        self.label = tk.Label(frame, text="Pcs")
-        self.label.pack(side="left")
-        self.pcs_entry = tk.Entry(frame_entries)
-        self.pcs_entry.pack(side="left")
-
-        self.label = tk.Label(frame, text="Pcs tested")
-        self.label.pack(side="left")
-        self.pcs_tested_entry = tk.Entry(frame_entries)
-        self.pcs_tested_entry.pack(side="left")
-
-        self.label = tk.Label(frame, text="Order Status")
-        self.label.pack(side="left")
-        self.orderStatus = tk.StringVar()
-        self.orderStatus.set("Assigned")
-        self.drop_status = tk.OptionMenu(
-            frame_entries, self.orderStatus, *orderStatusDrop
-        )
-        self.drop_status.pack(side="left")
-
-        self.status_button = tk.Button(
-            frame_update, text="Update order", command=self.update_status
-        )
-        self.status_button.pack(side="left")
-        self.delete_entry = tk.Entry(frame_update)
-        self.delete_entry.pack(side="left")
-        self.delete_button = tk.Button(
-            frame_update, text="Delete order", command=self.delete_order
-        )
-        self.delete_button.pack(side="right")
-
-        self.tree = ttk.Treeview(
-            root,
-            columns=("Machine", "Order", "PCS", "PCS Tested", "Status", "Last Updated"),
-            show="headings",
-            selectmode="extended",
-        )
         self.tree.bind(
             "<<TreeviewSelect>>", self.on_tree_select
         )  # Bind the selection event
-        self.tree.heading("Machine", text="Machine")
-        self.tree.heading("Order", text="Order")
-        self.tree.heading("PCS", text="PCS")
-        self.tree.heading("PCS Tested", text="PCS Tested")
-        self.tree.heading("Status", text="Status")
-        self.tree.heading("Last Updated", text="Last Updated")
-        self.tree.pack()
 
-        # Load orders from CSV on startup
-        self.load_from_csv()
+    def init_ui(self):
+        frame = ttk.Frame(self.root)
+        frame.pack(padx=20, pady=20)
 
-        # Update the tree with orders
-        self.update_tree()
+        # Create and configure labels
+        ttk.Label(frame, text="Test Order Tracker", font=("Helvetica", 16)).grid(
+            row=0, columnspan=2, pady=10
+        )
+        ttk.Label(frame, text="Machine").grid(row=1, column=0, sticky="w")
+        ttk.Label(frame, text="Order number").grid(row=2, column=0, sticky="w")
+        ttk.Label(frame, text="Pcs").grid(row=3, column=0, sticky="w")
+        ttk.Label(frame, text="Pcs tested").grid(row=4, column=0, sticky="w")
+        ttk.Label(frame, text="Order Status").grid(row=5, column=0, sticky="w")
 
-        # Register the save function to be called at exit
-        atexit.register(self.save_to_csv)
+        # Create and configure input widgets
+        self.MachineDrop = ttk.Combobox(
+            frame, values=MACHINE_DROP_OPTIONS, state="readonly"
+        )
+        self.MachineDrop.grid(row=1, column=1)
+        self.order_entry = ttk.Entry(frame)
+        self.order_entry.grid(row=2, column=1)
+        self.pcs_entry = ttk.Entry(frame)
+        self.pcs_entry.grid(row=3, column=1)
+        self.pcs_tested_entry = ttk.Entry(frame)
+        self.pcs_tested_entry.grid(row=4, column=1)
+        self.orderStatus = ttk.Combobox(
+            frame, values=ORDER_STATUS_OPTIONS, state="readonly"
+        )
+        self.orderStatus.grid(row=5, column=1)
+
+        # Create buttons
+        ttk.Button(frame, text="Update Order", command=self.update_status).grid(
+            row=6, column=0, padx=10, pady=10, sticky="w"
+        )
+        # Define the custom style for the red button
+        self.style.configure("Red.TButton", foreground="black", background="red")
+        ttk.Button(
+            frame, text="Delete Order", style="Red.TButton", command=self.delete_order
+        ).grid(row=6, column=1, padx=10, pady=10, sticky="e")
+
+        # Create and configure Treeview
+        columns = ("Machine", "Order", "PCS", "PCS Tested", "Status", "Last Updated")
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings")
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=100)  # Adjust column width as needed
+        self.tree.grid(row=7, column=0, columnspan=2, pady=10)
+
+        ttk.Label(frame, text="Created by Tibor Hoppan").grid(
+            row=8, column=1, sticky="e"
+        )
+
+        ttk.Label(frame, text="Ver. 0.2.0 / 5.09.2023").grid(
+            row=9, column=1, sticky="e"
+        )
+
+    def load_from_csv(self):
+        try:
+            with open("orders.csv", mode="r") as file:
+                reader = csv.reader(file)
+                self.orders = [row for row in reader]
+                self.update_tree()
+                print("Order list loaded!")
+        except FileNotFoundError:
+            print("No file found! Continuing with an empty order list.")
 
     def save_to_csv(self):
         with open("orders.csv", mode="w", newline="") as file:
             writer = csv.writer(file)
-            writer.writerows(orders)
-
-    def load_from_csv(self):
-        global orders
-        # Clear existing orders
-        orders = []
-        try:
-            with open("orders.csv", mode="r") as file:
-                reader = csv.reader(file)
-                for row in reader:
-                    orders.append(row)
-        except FileNotFoundError:
-            pass  # No file found, continue with an empty orders list
+            writer.writerows(self.orders)
+            print("Saved to CSV")
 
     def update_status(self):
         machine = self.MachineDrop.get()
@@ -144,12 +129,11 @@ class TestOrderApp:
         update_time = now.strftime("%d/%m/%Y %H:%M:%S")
         tuple_item = (machine, order, pcs, pcs_tested, status, update_time)
 
-        # Update order status logic here
-        for index, (_, existingOrder, _, _, _, _) in enumerate(orders):
+        for index, (_, existingOrder, _, _, _, _) in enumerate(self.orders):
             if existingOrder == order:
-                if status != orders[index][4]:  # Check if the status has changed
+                if status != self.orders[index][4]:
                     print(f"Status of order '{order}' changed. Updating status.")
-                    orders[index] = (
+                    self.orders[index] = (
                         machine,
                         order,
                         pcs,
@@ -158,9 +142,9 @@ class TestOrderApp:
                         update_time,
                     )
                     self.save_to_csv()
-                elif machine != orders[index][0]:  # Check if the machine has changed
+                elif machine != self.orders[index][0]:
                     print(f"Machine of order '{order}' changed. Updating machine.")
-                    orders[index] = (
+                    self.orders[index] = (
                         machine,
                         order,
                         pcs,
@@ -169,20 +153,9 @@ class TestOrderApp:
                         update_time,
                     )
                     self.save_to_csv()
-                elif order != orders[index][1]:  # Check if the order has changed
-                    print(f"'{order}' has changed. Updating.")
-                    orders[index] = (
-                        machine,
-                        order,
-                        pcs,
-                        pcs_tested,
-                        status,
-                        update_time,
-                    )
-                    self.save_to_csv()
-                elif pcs != orders[index][2]:  # Check if the pcs has changed
+                elif pcs != self.orders[index][2]:
                     print(f"PCS of order '{order}' changed. Updating pcs.")
-                    orders[index] = (
+                    self.orders[index] = (
                         machine,
                         order,
                         pcs,
@@ -191,11 +164,11 @@ class TestOrderApp:
                         update_time,
                     )
                     self.save_to_csv()
-                elif pcs_tested != orders[index][3]:  # Check if pcs_tested has changed
+                elif pcs_tested != self.orders[index][3]:
                     print(
                         f"PCS tested of order '{order}' changed. Updating pcs tested."
                     )
-                    orders[index] = (
+                    self.orders[index] = (
                         machine,
                         order,
                         pcs,
@@ -209,17 +182,17 @@ class TestOrderApp:
                 break
         else:
             print(f"Order '{order}' not found in the list. Appending.")
-            orders.append(tuple_item)
+            self.orders.append(tuple_item)
             self.save_to_csv()
 
         self.update_tree()
 
     def delete_order(self):
-        order_to_delete = self.delete_entry.get()
+        order_to_delete = self.order_entry.get()
 
-        for index, (_, existing_order, _, _, _, _) in enumerate(orders):
+        for index, (_, existing_order, _, _, _, _) in enumerate(self.orders):
             if existing_order == order_to_delete:
-                del orders[index]
+                del self.orders[index]
                 self.save_to_csv()
                 print(f"Order '{order_to_delete}' has been deleted.")
                 self.update_tree()
@@ -228,12 +201,10 @@ class TestOrderApp:
             print(f"Order '{order_to_delete}' not found in the list. Deletion failed.")
 
     def update_tree(self):
-        # Clear the existing rows in the Treeview
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # Insert each order into the Treeview
-        for machine, order, pcs, pcs_tested, status, update_time in orders:
+        for machine, order, pcs, pcs_tested, status, update_time in self.orders:
             self.tree.insert(
                 "",
                 "end",
@@ -241,15 +212,12 @@ class TestOrderApp:
             )
 
     def on_tree_select(self, event):
-        # Get the selected item(s) from the tree view
         selected_items = self.tree.selection()
 
         if selected_items:
-            # Get the data from the first selected item (assuming single selection)
             selected_item = self.tree.item(selected_items[0])["values"]
             machine, order, pcs, pcs_tested, status, _ = selected_item
 
-            # Update the entry fields with the selected item's data
             self.MachineDrop.set(machine)
             self.order_entry.delete(0, tk.END)
             self.order_entry.insert(0, order)
@@ -260,6 +228,11 @@ class TestOrderApp:
             self.orderStatus.set(status)
 
 
-root = tk.Tk()
-app = TestOrderApp(root)
-root.mainloop()
+def main():
+    root = tk.Tk()
+    app = TestOrderApp(root)  # noqa: F841
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
